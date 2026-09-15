@@ -1,0 +1,6 @@
+holds-only asset                       MATCH        asset retained=True
+observed-but-undelivered dot           MATCH        observed={"r2": 1, "r3": 1}
+counter gaps / normalisation           MATCH        observed={"base": {"r1": 3}, "extra": [["r1", 9]]}
+compact(compact(s))                    MATCH        engine idempotent=True oracle idempotent=True first-compact agree=True
+merge: record vs rejection, same dot   ACCEPTED     rejections=[(['r3', 1], 'HOLD_CONCURRENT')]
+tampered live member                   MATCH        engine live_count=1 oracle live_count=1
