@@ -345,24 +345,28 @@ watermark**. It is a function of the state alone, it is never stored, and `statu
 
 ### 5.2 Safety
 
-**A discard must be unobservable.** `compact` MAY discard a delete record `D` only if, for every
-region `r` in `registry`, and for every index state `S` that `r` could be holding which is
-consistent with what this state records about `r`, merging `S` into this state — had the discard
-not occurred — would produce no version record that the discard removed.
+**Precondition.** `compact` assumes the state will receive no hold record it does not already hold.
+This is the terminality rule of §6.1 restated as a precondition: a state that may still receive a
+hold must not be compacted, because §2.3 would then require versions to become live again that
+compaction has discarded.
 
-If a discard can fail that condition, performing it is a **resurrection fault** and MUST NOT occur:
-some region may still hold a covered version as live while not yet knowing of `D`, and the version
-would come back.
+**A discard must change nothing that anyone can still observe.** Write `U` for the state as it
+stands and `U∖D` for the same state with delete record `D` and its covered version records removed.
+`compact` MAY discard `D` only if, for every region `r` in `registry` and every index state `S` that
+`r` could be holding consistently with what `U` records about `r`,
 
-Two consequences are worth stating because they are easy to get backwards, and both follow from the
-condition rather than extending it:
+> `live(merge(U, S))` and `live(merge(U∖D, S))` are the same set.
 
-- The quantifier ranges over **`registry`**, not over the regions this state has heard from.
-  A region that is unreachable, or that has never sent a single operation, is still a region that
-  may be holding a covered version.
-- It is the **deleting operation** that matters, not the deleted version. A region that never
-  received the upload cannot bring it back; a region that received the upload but not the delete
-  can.
+That is: the discard is permitted exactly when no region, merging its own state against ours, could
+tell that it happened. Where the two differ, performing the discard is a **resurrection fault** and
+MUST NOT occur — the version comes back live at a region that had not yet learned of `D`.
+
+The comparison is over `live` (§3.3), not over record sets. Records are retained regardless of
+liveness and absence never removes anything (§6), so a discard necessarily changes which *records*
+are present; what it may not change is which versions are **live**.
+
+`merge` rejects compacted states (§6.1), so the merges above are counterfactual. They define when a
+discard is permitted; they are not operations a conforming implementation performs.
 
 ### 5.3 Liveness
 
@@ -405,21 +409,13 @@ never receives a later-arriving hold.
 The restriction is what makes compaction sound, and the reason is worth stating because the weaker
 alternative is tempting and wrong:
 
-> It is **not** sufficient to require that the other side has merely *observed* every discarded
-> delete. `observed` is a causal closure (§3.2), so a dot enters it whenever any operation's context
-> mentions it — a state can have `D ∈ observed` while never having received `D` itself, and so still
-> hold the versions `D` covers as live. Merging that state with one that discarded `D` resurrects
-> them.
+> A hold delivered after compaction can reject a discarded delete, and §2.3 would then require the
+> covered versions to become live again with their original digests — which compaction has
+> destroyed. And `compact` does not commute with `merge`: `compact(merge(A, B))` can discard a
+> delete that `merge(compact(A), compact(B))` must retain, so the two orders disagree.
 >
-> Two further problems have the same root. A hold delivered after compaction can reject the
-> discarded delete, and §2.3 would then require the covered versions to become live again with their
-> original digests — which compaction has destroyed. And `compact` does not commute with `merge`:
-> the watermark of a merged state can strictly exceed the union of its inputs' watermarks, because
-> `region_contexts` combine per region, so `compact(merge(A, B))` can discard a delete that
-> `merge(compact(A), compact(B))` must retain.
->
-> Every one of these is an interaction between compaction and merge. Making compacted states
-> terminal removes the interaction rather than attempting to police it.
+> Both are interactions between compaction and merge. Making compacted states terminal removes the
+> interaction rather than attempting to police it.
 
 ---
 
