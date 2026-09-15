@@ -10,3 +10,7 @@ __pycache__/
 .venv-harbor-*/
 .env
 *.log
+
+# never commit credentials or harbor job output
+.secrets/
+.harbor-jobs/
