@@ -1,0 +1,19 @@
+{
+  "compacted_through": {
+    "base": {
+      "r2": 1
+    },
+    "extra": []
+  },
+  "delete_count": 0,
+  "live_count": 2,
+  "rejected_count": 1,
+  "schema": "asset-status/1",
+  "watermark": {
+    "base": {
+      "r1": 1,
+      "r2": 1
+    },
+    "extra": []
+  }
+}
