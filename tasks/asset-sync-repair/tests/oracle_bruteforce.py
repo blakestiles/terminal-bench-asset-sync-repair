@@ -311,5 +311,36 @@ def compact(state):
 # ---------------------------------------------------------------------------
 
 
+def status(state):
+    """Section 7.4. Reports a state: no stage of section 4, no hold
+    evaluation, no compaction. `live` is re-derived per section 3.3 by direct
+    search over the happens-before edge set, never read from the input.
+    """
+    live_count = 0
+    delete_count = 0
+    for ws_doc in state["workspaces"].values():
+        for asset in ws_doc["assets"].values():
+            nodes = [
+                {"dot": tuple(rec["dot"]), "ctx": rec["ctx"]}
+                for rec in asset["versions"] + asset["deletes"]
+            ]
+            hb = HappensBefore(nodes)
+            delete_dots = [tuple(rec["dot"]) for rec in asset["deletes"]]
+            delete_count += len(delete_dots)
+            for rec in asset["versions"]:
+                vdot = tuple(rec["dot"])
+                if not any(hb.before(vdot, ddot) for ddot in delete_dots):
+                    live_count += 1
+
+    return {
+        "schema": "asset-status/1",
+        "watermark": dots_ctx(watermark(state)),
+        "compacted_through": dots_ctx(ctx_dots(state["compacted_through"])),
+        "live_count": live_count,
+        "delete_count": delete_count,
+        "rejected_count": len(state["rejections"]),
+    }
+
+
 def canonical_bytes(doc):
     return json.dumps(doc, sort_keys=True, indent=2, ensure_ascii=False) + "\n"
