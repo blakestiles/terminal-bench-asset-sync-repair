@@ -28,6 +28,14 @@ def main(root):
     count = 0
 
     for dirpath, dirnames, filenames in os.walk(root):
+        # __pycache__ is a side effect of *running* the engine, which is
+        # exactly what a careful agent does before submitting. It cannot
+        # smuggle anything: a .pyc under __pycache__ is only ever used when the
+        # matching .py is present and current, and the .py is gated below.
+        # Rejecting it would fail agents for testing their own work.
+        if "__pycache__" in dirnames:
+            dirnames.remove("__pycache__")
+
         for name in dirnames:
             path = os.path.join(dirpath, name)
             if os.path.islink(path):
@@ -51,7 +59,10 @@ def main(root):
             # transport normalises modes, which is a far worse failure than
             # the one it would prevent.
 
-            if name.endswith(".pyc") or "__pycache__" in relative.split(os.sep):
+            # A stray .pyc outside __pycache__ is still refused: nothing
+            # legitimate puts one there, and it is the smuggling shape T7 aims
+            # at.
+            if name.endswith(".pyc"):
                 return fail("compiled artifact %s" % relative)
             if not name.endswith(".py"):
                 return fail("%s is not a .py file" % relative)

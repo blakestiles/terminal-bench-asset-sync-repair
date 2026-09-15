@@ -1,0 +1,2 @@
+artifact gate: FAIL compiled artifact __pycache__/cleanup.cpython-312.pyc
+VERDICT: reward 0 - artifact gate rejected the delivered package
