@@ -120,7 +120,7 @@ def _emit_dot(dot):
 
 
 def _emit_record(rec):
-    out = {"dot": _emit_dot(rec["dot"]), "ctx": rec["ctx"]}
+    out = {"dot": _emit_dot(rec["dot"]), "ctx": dots_ctx(ctx_dots(rec["ctx"]))}
     if "digest" in rec:
         out["digest"] = rec["digest"]
     return out
@@ -182,7 +182,7 @@ def evaluate(operations, registry):
             rejections.append(
                 {
                     "dot": _emit_dot(dot),
-                    "ctx": by_dot[dot]["ctx"],
+                    "ctx": dots_ctx(ctx_dots(by_dot[dot]["ctx"])),
                     "op": kind,
                     "workspace": workspace,
                     "asset_id": asset_id,
