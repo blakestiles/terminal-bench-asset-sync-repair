@@ -1,2 +1,1 @@
-.harbor-jobs/std-claude-code-1789518578 (trial LVE3iTg)
-.harbor-jobs/std-claude-code-1789523420 (trials iDQ9tcJ, 2fvEBLK)
+harbor-jobs/std-claude-code-1789533108
