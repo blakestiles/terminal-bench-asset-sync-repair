@@ -103,7 +103,14 @@ fi
   echo "job              : $NAME"
   echo "auth             : ${AUTH_MODE:-codex auth.json}"
   echo "command          : harbor run -p <task> --agent $AGENT --env docker --yes \\"
-  echo "                     -k $TRIALS -n $CONCURRENT ${EXTRA[*]//CLAUDE_CODE_OAUTH_TOKEN=*/CLAUDE_CODE_OAUTH_TOKEN=<redacted>}"
+  # Route through sed for every credential shape - the bash ${var//pat/rep}
+  # form used previously only matched CLAUDE_CODE_OAUTH_TOKEN and silently let
+  # ANTHROPIC_API_KEY=<raw key> through when the API-key fallback path ran.
+  REDACTED_EXTRA="$(printf '%s' "${EXTRA[*]}" | sed -E \
+    -e 's/CLAUDE_CODE_OAUTH_TOKEN=[^ ]*/CLAUDE_CODE_OAUTH_TOKEN=<redacted>/g' \
+    -e 's/ANTHROPIC_API_KEY=[^ ]*/ANTHROPIC_API_KEY=<redacted>/g' \
+    -e 's/sk-ant-[A-Za-z0-9_-]+/<redacted>/g')"
+  echo "                     -k $TRIALS -n $CONCURRENT $REDACTED_EXTRA"
   echo
 } > "$EVIDENCE/command.txt"
 echo "$VERSION" > "$EVIDENCE/harbor-version.txt"
