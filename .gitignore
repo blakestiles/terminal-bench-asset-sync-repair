@@ -14,3 +14,4 @@ __pycache__/
 # never commit credentials or harbor job output
 .secrets/
 .harbor-jobs/
+tasks/asset-sync-repair/tests/fixtures/

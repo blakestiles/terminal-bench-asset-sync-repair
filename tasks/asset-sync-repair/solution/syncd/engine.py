@@ -52,15 +52,20 @@ def evaluate(acc, compacting=False):
         if reason is not None:
             rejection["reason"] = reason
 
+    # Spec 3.3: a version is live iff no surviving delete's context covers its
+    # dot. Checking every version against every delete individually is
+    # correct but quadratic in (versions x deletes) per asset. It is
+    # equivalent, and linear, to test each version against the UNION of all
+    # delete contexts once: "no delete covers d" is exactly "the union of
+    # every delete's context does not cover d".
     live = {}
     for workspace, assets in acc.workspaces.items():
         for asset_id, asset in assets.items():
+            deleted = Context()
+            for delete in asset.deletes.values():
+                deleted.union_update(delete["ctx"])
             live[(workspace, asset_id)] = [
-                dot
-                for dot in sorted(asset.versions)
-                if not any(
-                    delete["ctx"].contains(dot) for delete in asset.deletes.values()
-                )
+                dot for dot in sorted(asset.versions) if not deleted.contains(dot)
             ]
 
     compacted_through = acc.compacted_through.copy()
@@ -71,13 +76,27 @@ def evaluate(acc, compacting=False):
                 discardable = [
                     dot for dot in asset.deletes if watermark.contains(dot)
                 ]
+                if not discardable:
+                    continue
+                # Same principle: the versions a batch of discarded deletes
+                # covers is exactly what the union of their contexts covers,
+                # computed once rather than once per discarded delete.
+                covered = Context()
+                newly_compacted = set()
                 for dot in discardable:
-                    covered = asset.deletes[dot]["ctx"]
+                    covered.union_update(asset.deletes[dot]["ctx"])
                     del asset.deletes[dot]
-                    for version_dot in list(asset.versions):
-                        if covered.contains(version_dot):
-                            del asset.versions[version_dot]
-                    compacted_through.add(dot)
+                    newly_compacted.add(dot)
+                for version_dot in list(asset.versions):
+                    if covered.contains(version_dot):
+                        del asset.versions[version_dot]
+                # `Context.add` normalises on every call, so adding discarded
+                # dots one at a time is quadratic in a large discardable
+                # batch. Build the batch as a single context and normalise
+                # once instead.
+                batch = Context(extra=newly_compacted)
+                batch.normalize()
+                compacted_through.union_update(batch)
 
     workspaces = {}
     for workspace in sorted(acc.workspaces):
