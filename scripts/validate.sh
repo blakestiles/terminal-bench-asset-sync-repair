@@ -15,8 +15,16 @@ set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKSPACE="$(cd "$REPO_ROOT/.." && pwd)"
+# Local dev uses an isolated venv (see EVALUATION.md's two-harbor-versions
+# note) at a fixed path outside the repo. CI has no such venv; gates.yml
+# installs harbor 0.18.0 globally instead, so fall back to PATH there.
 HARBOR="$WORKSPACE/.venv-harbor-0180/Scripts/harbor.exe"
-[ -x "$HARBOR" ] || HARBOR="$WORKSPACE/.venv-harbor-0180/bin/harbor"
+if [ ! -x "$HARBOR" ]; then HARBOR="$WORKSPACE/.venv-harbor-0180/bin/harbor"; fi
+if [ ! -x "$HARBOR" ]; then HARBOR="$(command -v harbor || true)"; fi
+if [ -z "$HARBOR" ]; then
+  echo "FAIL: no harbor executable found (checked .venv-harbor-0180 and PATH)" >&2
+  exit 1
+fi
 
 TASK_PATH="$REPO_ROOT/tasks/asset-sync-repair"
 JOBS="$REPO_ROOT/.harbor-jobs"
