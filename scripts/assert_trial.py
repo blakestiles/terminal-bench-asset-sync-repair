@@ -17,10 +17,19 @@ Usage:  python3 scripts/assert_trial.py <job-dir> [--json out.json]
 
 import json
 import pathlib
+import re
 import sys
 
+# "429" as a bare substring matches inside ordinary numbers (byte counts,
+# token counts) far more often than it matches an actual HTTP status code.
+# Found the hard way: it false-positived on "34295 bytes" and
+# "prompt_tokens: 54295" in a trial that solved cleanly with no infra issue
+# at all, which would have thrown away a genuine, paid-for result. Anchored
+# to non-digit boundaries and a plausible HTTP-status context instead.
+STATUS_429_RE = re.compile(r"(?<!\d)(?:http[^\n]{0,20}429|429[^\n]{0,20}too many requests|status[_ ]?code[\"': ]{0,4}429)(?!\d)", re.I)
+
 INFRA_MARKERS = (
-    "ratelimit", "rate_limit", "rate limit", "429",
+    "ratelimit", "rate_limit", "rate limit",
     "overloaded", "api error", "apierror",
     "connection reset", "connectionerror", "timed out waiting",
     "authenticationerror", "invalid_api_key", "oauth",
@@ -90,6 +99,9 @@ def check(trial_dir):
         if marker in blob:
             reasons.append("infrastructure marker %r in logs" % marker)
             return False, "EXCLUDED", reasons
+    if STATUS_429_RE.search(blob):
+        reasons.append("HTTP 429 (rate limit) in logs")
+        return False, "EXCLUDED", reasons
     for marker in OOM_MARKERS:
         if marker in blob:
             reasons.append("possible OOM marker %r in logs" % marker)
